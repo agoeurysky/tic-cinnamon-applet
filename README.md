@@ -4,6 +4,12 @@ Applet Cinnamon permettant d'afficher la puissance apparente (PAPP) instantanée
 
 Utilise le projet suivant pour récupérer la donnée JSON du compteur : https://github.com/rene-d/wifinfo
 
+Rendu :
+
+![green](green-va.png)
+![yellow](yellow-va.png)
+![red](red-va.png)
+
 ## Installation
 
 Copy `tic@agoeurysky` folder in `~/.local/share/cinnamon/applets`.
