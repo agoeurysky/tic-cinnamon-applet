@@ -1,0 +1,16 @@
+{
+    "update-interval": {
+        "type": "spinbutton",
+        "default": 2000,
+        "min": 2000,
+        "max": 30000,
+        "step": 100,
+        "units": "ms",
+        "description": "Update interval"
+    },
+    "json-uri": {
+        "type": "entry",
+        "default": "http://localhost/json",
+        "description": "URI to the json data"
+    }
+  }
