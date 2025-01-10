@@ -7,23 +7,30 @@ const Soup = imports.gi.Soup;
 const Settings = imports.ui.settings;
 const UUID = "tic@agoeurysky";
 
-function MyApplet(orientation, panel_height, instance_id) {
-    this._init(orientation, panel_height, instance_id);
+const ICON_GREEN = "/assets/flag-green.svg";
+const ICON_BLUE = "/assets/flag-blue.svg";
+const ICON_YELLOW = "/assets/flag-yellow.svg";
+const ICON_RED = "/assets/flag-red.svg";
+
+function MyApplet(metadata, orientation, panel_height, instance_id) {
+    this._init(metadata, orientation, panel_height, instance_id);
 }
 
 MyApplet.prototype = {
     __proto__: Applet.TextIconApplet.prototype,
 
-    _init: function(orientation, panel_height, instance_id) {
+    _init: function(metadata, orientation, panel_height, instance_id) {
         Applet.TextIconApplet.prototype._init.call(this, orientation, panel_height, instance_id);
 
         this.settings = new Settings.AppletSettings(this, UUID, this.instance_id);
         this.settings.bindProperty(Settings.BindingDirection.IN, "update-interval", "update_interval", this._new_freq, null);
         this.settings.bindProperty(Settings.BindingDirection.IN, "json-uri", "json_uri", null, null);
 
-        this.set_applet_icon_name("flag-green");
+        this.metadata = metadata;
 
-        this.httpSession = new Soup.SessionAsync();
+        this.set_applet_icon_name("battery");
+
+        this.httpSession = new Soup.Session();
 
         this._update_loop();
     },
@@ -44,38 +51,48 @@ MyApplet.prototype = {
     },
 
     _get_status: function(){
+        var self = this;
         let message = Soup.Message.new('GET', this.json_uri);
-        this.httpSession.queue_message(message, (session, response) => {
-            if (response.status_code !== 200) {
-                var err = 'Failure to receive valid response from remote api ' + this.json_uri;
+
+        this.httpSession.send_and_read_async(message, GLib.PRIORITY_DEFAULT, null, function (session, response) {
+            if (message.get_status() !== 200) {
+                var err = 'Failure to receive valid response from remote api ' + self.json_uri;
                 global.logWarning(err);
-                this.set_applet_label("... VA")
-                this.set_applet_tooltip(err);
-                this.set_applet_icon_name("error");
+                self.set_applet_label("... VA")
+                self.set_applet_tooltip(err);
+                self.set_applet_icon_name("error");
             } else {
-                var value = this._get_tic_va(response.response_body.data);
-                if (value < 500) {
-                    this.set_applet_icon_name("flag-green");
-                } else if (value < 1000) {
-                    this.set_applet_icon_name("flag-blue");
-                } else if (value < 3000) {
-                    this.set_applet_icon_name("flag-yellow");
-                } else {
-                    this.set_applet_icon_name("flag-red");
-                }
-                this.set_applet_tooltip(_("PAPP value"));
-                this.set_applet_label(value + " VA");
+		        try {
+            		let bytes = session.send_and_read_finish(response);
+                    let decoder = new TextDecoder('utf-8');
+                    let responseData = decoder.decode(bytes.get_data());
+
+                    var value = self._get_tic_va(responseData);
+
+                    if (value < 500) {
+                        self.set_applet_icon_symbolic_path(self.metadata.path + ICON_GREEN);
+                    } else if (value < 1000) {
+                        self.set_applet_icon_symbolic_path(self.metadata.path + ICON_BLUE);
+                    } else if (value < 3000) {
+                        self.set_applet_icon_symbolic_path(self.metadata.path + ICON_YELLOW);
+                    } else {
+                        self.set_applet_icon_symbolic_path(self.metadata.path + ICON_RED);
+                    }
+                    
+                    self.set_applet_tooltip(_("PAPP value"));
+                    self.set_applet_label(value + " VA");
+		        }
+
+		        catch (error) {
+			        global.logWarning("ERROR " + error);
+		        }
             }
         });
     },
 
     _get_tic_va: function(jsonResponse) {
-        var value = 0;
-        const ticArray = JSON.parse(jsonResponse);
-        ticArray.forEach(item => {
-            if (item.na == "PAPP") {value = +item.va;}
-        });
-        return value;
+        const ticObject = JSON.parse(jsonResponse);
+        return ticObject.PAPP;
     },
 
     _update_loop: function () {
@@ -85,5 +102,5 @@ MyApplet.prototype = {
 };
 
 function main(metadata, orientation, panel_height, instance_id) {
-    return new MyApplet(orientation, panel_height, instance_id);
+    return new MyApplet(metadata, orientation, panel_height, instance_id);
 }
